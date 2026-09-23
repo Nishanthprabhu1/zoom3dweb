@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tablewise — Zoom into the AI + AR menu</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Outfit:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0c0a16;--saffron:#ffb547;--chili:#ff5a4d;--mint:#5ef2c2;--text:#f6f1ff;--muted:#c3b8dc;--glass:rgba(255,255,255,.09);--edge:rgba(255,255,255,.28);box-sizing:border-box}
+*,*:before,*:after{box-sizing:inherit}
+html{color-scheme:dark}
+body{margin:0;background:radial-gradient(60% 50% at 15% 10%,#4b1d7a 0%,transparent 60%),radial-gradient(50% 50% at 90% 70%,#7a2a3a 0%,transparent 60%),var(--ink);color:var(--text);font:400 17px/1.5 Outfit,system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+#spacer{height:800vh}
+.glass{background:var(--glass);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 20px 50px rgba(0,0,0,.35);border-radius:22px}
+nav{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:5;width:min(960px,calc(100% - 24px));display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px 8px 18px}
+nav b{font:800 19px Fraunces,serif}
+.tabs{display:flex;gap:6px}
+button{font:500 15px Outfit,sans-serif;color:var(--text);background:rgba(255,255,255,.08);border:1px solid var(--edge);border-radius:12px;padding:8px 14px;cursor:pointer}
+button.on,.go{color:#1b0f2e;background:linear-gradient(135deg,var(--saffron),#ffd98a);border-color:transparent}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.zoom{position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;flex-direction:column;gap:8px}
+.zoom button{width:48px;height:48px;font-size:22px;padding:0;border-radius:16px}
+#hud{position:fixed;z-index:4;left:5vw;top:50%;transform:translateY(-50%);width:min(440px,90vw);padding:28px;transition:opacity .35s}
+#hud.sw{opacity:0}
+.pill{display:inline-block;font-size:13px;padding:4px 12px;border-radius:99px;background:rgba(94,242,194,.14);border:1px solid rgba(94,242,194,.4);color:var(--mint);margin-bottom:12px}
+h1,h2{font-family:Fraunces,serif;font-weight:800;letter-spacing:-.02em;line-height:1.05;margin:0 0 10px}
+h2{font-size:clamp(30px,4vw,44px)}h1{font-size:clamp(36px,5vw,58px)}
+.price{color:var(--saffron);font:600 22px Fraunces,serif;margin:0 0 10px}
+p{margin:0 0 14px;color:var(--muted)}
+.row{display:flex;gap:10px;align-items:flex-start;margin:0 0 10px;font-size:15px}
+.row i{flex:none;font-style:normal;font-weight:500;font-size:12px;padding:3px 9px;border-radius:8px;background:rgba(255,181,71,.16);color:var(--saffron);border:1px solid rgba(255,181,71,.4)}
+.row.ar i{background:rgba(94,242,194,.14);color:var(--mint);border-color:rgba(94,242,194,.4)}
+#intro{position:fixed;z-index:4;left:5vw;top:50%;transform:translateY(-50%);width:min(460px,90vw);padding:30px;transition:opacity .3s}
+.tag3d{position:fixed;left:0;top:0;z-index:3;pointer-events:none;padding:8px 14px;border-radius:14px;font-size:13px;line-height:1.3;width:190px;opacity:0;will-change:transform,opacity}
+.tag3d b{color:var(--saffron);font-weight:500}
+.bar{position:fixed;left:0;top:0;height:3px;z-index:6;background:linear-gradient(90deg,var(--mint),var(--saffron));width:0}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);z-index:7;padding:12px 18px;opacity:0;transition:.3s;font-size:15px;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media(max-width:760px){
+ #hud,#intro{top:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:none;left:12px;width:calc(100% - 84px);padding:18px}
+ .tag3d{width:150px;font-size:11px}.tabs button{padding:7px 10px;font-size:13px}nav b{display:none}
+ h2{font-size:26px}p{font-size:15px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-hidden="true"></canvas>
+<div class="bar" id="bar"></div>
+<nav class="glass"><b>Tablewise</b>
+ <div class="tabs"><button id="t0" class="on">Starters</button><button id="t1">Main course</button></div></nav>
+
+<div id="intro" class="glass">
+ <h1>Zoom in to open the menu.</h1>
+ <p>Scroll, swipe or use the zoom buttons. Starters come first, then main course. Each dish is a live 3D model: AR shows its true size, AI matches it to the guest.</p>
+ <span class="pill">Scroll to zoom</span>
+</div>
+
+<div id="hud" class="glass" style="opacity:0">
+ <span class="pill" id="course"></span>
+ <h2 id="name"></h2>
+ <div class="price" id="price"></div>
+ <p id="desc"></p>
+ <div class="row"><i>AI</i><span id="ai"></span></div>
+ <div class="row ar"><i>AR</i><span id="ar"></span></div>
+ <button class="go" id="arbtn">Preview on my table in AR</button>
+</div>
+
+<div class="zoom"><button id="zin" aria-label="Zoom in to next dish">+</button><button id="zout" aria-label="Zoom out to previous dish">−</button></div>
+<div id="toast" class="glass" role="status"></div>
+<div id="tags"></div>
+<div id="spacer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const GAP=9,$=id=>document.getElementById(id);
+const ITEMS=[
+ {c:'Starters',n:'Tomato basil soup',p:'₹180',d:'Slow-roasted tomatoes, basil oil and a swirl of cream.',ai:'Light start that suits your taste. Flags dairy for you.',ar:'Place the bowl on your table to check the size.',tag:'Soup bowl'},
+ {c:'Starters',n:'Paneer tikka skewers',p:'₹260',d:'Charred paneer, pepper and onion with mint chutney.',ai:'Top pick for vegetarians. Spice level tuned to you.',ar:'Rotate the skewers and see how many pieces you get.',tag:'Skewers'},
+ {c:'Starters',n:'Crispy spring rolls',p:'₹220',d:'Crunchy vegetable rolls with sweet chilli dip.',ai:'Pairs well with your usual soup order.',ar:'See the true portion before you order.',tag:'Spring rolls'},
+ {c:'Main course',n:'Smoky grill burger',p:'₹340',d:'Flame-grilled patty, cheddar, lettuce and toasted bun.',ai:'Most ordered by guests with similar taste. No nuts.',ar:'Drop a life-size burger on the table.',tag:'Burger'},
+ {c:'Main course',n:'Wood-fired pizza',p:'₹420',d:'Thin crust, mozzarella, pepperoni and fresh basil.',ai:'AI sizes it for your group: 2 people share one.',ar:'Spin the pizza and check the crust in AR.',tag:'Pizza'},
+ {c:'Main course',n:'Creamy tomato pasta',p:'₹380',d:'Fresh pasta in a rich tomato sauce with basil.',ai:'Allergen check done: contains gluten, no nuts.',ar:'View the bowl size next to your glass.',tag:'Pasta bowl'}
+];
+const N=ITEMS.length,mob=()=>innerWidth<760;
+const R=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true});
+R.setPixelRatio(Math.min(devicePixelRatio,2));
+const S=new THREE.Scene();S.fog=new THREE.Fog(0x0c0a16,14,34);
+const cam=new THREE.PerspectiveCamera(45,1,.1,100);
+S.add(new THREE.AmbientLight(0xffffff,.75));
+const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(3,6,6);S.add(dl);
+const pm=new THREE.PointLight(0x5ef2c2,1.3,30);const ps=new THREE.PointLight(0xffb547,1.2,30);S.add(pm,ps);
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.55,metalness:.05},o));
+const glassM=c=>new THREE.MeshPhysicalMaterial({color:c,transparent:true,opacity:.35,roughness:.08,metalness:.2,clearcoat:1});
+const mintB=new THREE.MeshBasicMaterial({color:0x5ef2c2});
+const add=(g,geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x||0,y||0,z||0);g.add(o);return o;};
+function plate(g,r){add(g,new THREE.CylinderGeometry(r,r*.85,.14,48),glassM(0xffffff),0,-.25,0);const ar=add(g,new THREE.TorusGeometry(r*1.2,.03,8,80),mintB,0,-.2,0);ar.rotation.x=Math.PI/2;return ar;}
+const bowl=(g,r)=>add(g,new THREE.SphereGeometry(r,32,16,0,Math.PI*2,Math.PI/2,Math.PI/2),M(0xf4efe6,{side:THREE.DoubleSide,roughness:.3}),0,.7,0);
+
+const B=[
+ g=>{bowl(g,1.2);add(g,new THREE.CircleGeometry(1.08,32),M(0xd9412f,{side:THREE.DoubleSide}),0,.5,0).rotation.x=-Math.PI/2;
+  const sw=add(g,new THREE.TorusGeometry(.4,.06,8,30),M(0xfff0d6),0,.52,0);sw.rotation.x=Math.PI/2;
+  for(let i=0;i<4;i++)add(g,new THREE.SphereGeometry(.16,10,8),M(0x4cae3f),Math.cos(i*1.6)*.55,.55,Math.sin(i*1.6)*.55).scale.y=.3;},
+ g=>{[-.35,.35].forEach((z,k)=>{const s=new THREE.Group();s.position.set(0,.1,z);g.add(s);
+   const st=add(s,new THREE.CylinderGeometry(.03,.03,3,8),M(0xcaa26a));st.rotation.z=Math.PI/2;
+   for(let i=0;i<5;i++)add(s,new THREE.BoxGeometry(.42,.42,.42),M([0xf2b24a,0x4cae3f,0xd9412f,0xf2b24a,0x4cae3f][i]),-1.05+i*.52,0,0).rotation.set(i,i*.7,0);});},
+ g=>{for(let i=0;i<3;i++){const r=add(g,new THREE.CylinderGeometry(.28,.28,1.8,20),M(0xd99a4a),0,.1+i*.02,(i-1)*.75);r.rotation.z=Math.PI/2;r.rotation.y=(i-1)*.15;
+   [-1,1].forEach(s=>add(g,new THREE.CylinderGeometry(.2,.2,.03,16),M(0x7bb55a),s*.9,.1,(i-1)*.75).rotation.z=Math.PI/2);}
+  add(g,new THREE.CylinderGeometry(.35,.3,.25,24),M(0xd9412f),1.5,-.05,-.9);},
+ g=>{add(g,new THREE.CylinderGeometry(1.1,1.2,.36,40),M(0xe8a24a),0,0,0);add(g,new THREE.CylinderGeometry(1.15,1.15,.34,40),M(0x5a2f1c,{roughness:.8}),0,.36,0);
+  add(g,new THREE.BoxGeometry(2.3,.06,2.3),M(0xffcc33),0,.6,0).rotation.y=.78;
+  add(g,new THREE.TorusGeometry(1.05,.13,10,40),M(0x63c04a),0,.72,0).rotation.x=Math.PI/2;
+  add(g,new THREE.SphereGeometry(1.15,40,20,0,Math.PI*2,0,Math.PI/2),M(0xe8a24a),0,.8,0).scale.y=.85;g.rotation.x=.25;},
+ g=>{const p=new THREE.Group();g.add(p);add(p,new THREE.CylinderGeometry(1.9,1.9,.12,48),M(0xd9a35a),0,0,0);
+  add(p,new THREE.CylinderGeometry(1.7,1.7,.08,48),M(0xffd45a),0,.08,0);add(p,new THREE.TorusGeometry(1.8,.09,8,48),M(0xc98a3f),0,.08,0).rotation.x=Math.PI/2;
+  for(let i=0;i<9;i++){const a=i*.9,r=.3+(i%3)*.4;add(p,new THREE.CylinderGeometry(.22,.22,.05,16),M(0xb3282a),Math.cos(a)*r*1.3,.15,Math.sin(a)*r*1.3);}
+  for(let i=0;i<5;i++)add(p,new THREE.SphereGeometry(.14,8,6),M(0x3f9b3a),Math.cos(i*1.3)*1,.2,Math.sin(i*1.3)*1).scale.y=.3;p.rotation.x=.5;g.userData.spin=p;},
+ g=>{bowl(g,1.3);const k=add(g,new THREE.TorusKnotGeometry(.65,.22,120,12,3,5),M(0xf2cf6a),0,.75,0);k.scale.y=.6;
+  add(g,new THREE.SphereGeometry(.5,16,12),M(0xd9412f),0,.95,0).scale.y=.5;
+  for(let i=0;i<3;i++)add(g,new THREE.SphereGeometry(.15,8,6),M(0x4cae3f),Math.cos(i*2)*.3,1.2,Math.sin(i*2)*.3).scale.y=.3;}
+];
+const groups=B.map((f,i)=>{const g=new THREE.Group();S.add(g);f(g);const ar=plate(g,i===4?2.1:1.7);g.userData.ar=ar;g.position.z=-i*GAP;return g;});
+
+// section signs and gate ring
+function sign(txt,z){const c=document.createElement('canvas');c.width=1024;c.height=256;const x=c.getContext('2d');x.font='800 170px Fraunces,serif';x.textAlign='center';x.textBaseline='middle';
+ x.fillStyle='rgba(255,255,255,.1)';x.fillText(txt,512,130);x.lineWidth=3;x.strokeStyle='rgba(94,242,194,.75)';x.strokeText(txt,512,130);
+ const m=new THREE.Mesh(new THREE.PlaneGeometry(12,3),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));m.position.set(0,.4,z);S.add(m);}
+sign('STARTERS',-GAP*0-5);sign('MAIN COURSE',-GAP*3-5);
+const gate=new THREE.Mesh(new THREE.TorusGeometry(4,.05,10,90),new THREE.MeshBasicMaterial({color:0xffb547}));gate.position.z=-GAP*2.5;S.add(gate);
+
+// star tunnel for zoom feel
+const pg=new THREE.BufferGeometry(),pv=[];for(let i=0;i<700;i++){const a=Math.random()*6.28,r=3+Math.random()*9;pv.push(Math.cos(a)*r,Math.sin(a)*r,-Math.random()*(GAP*N+20)+12);}
+pg.setAttribute('position',new THREE.Float32BufferAttribute(pv,3));
+S.add(new THREE.Points(pg,new THREE.PointsMaterial({color:0x9ff5dc,size:.06,transparent:true,opacity:.7})));
+
+const tags=ITEMS.map(it=>{const d=document.createElement('div');d.className='tag3d glass';d.innerHTML='<b>'+it.tag+'</b> — AR true-size view, AI taste match';$('tags').appendChild(d);return d;});
+
+const sm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+const maxS=()=>document.documentElement.scrollHeight-innerHeight;
+const goTo=i=>scrollTo({top:i/(N-1)*maxS(),behavior:'smooth'});
+$('t0').onclick=()=>goTo(0);$('t1').onclick=()=>goTo(3);
+$('zin').onclick=()=>goTo(Math.min(N-1,Math.round(uE)+1));
+$('zout').onclick=()=>goTo(Math.max(0,Math.round(uE)-1));
+addEventListener('keydown',e=>{if(e.key==='ArrowRight')$('zin').click();if(e.key==='ArrowLeft')$('zout').click();});
+let toastT;$('arbtn').onclick=()=>{const t=$('toast');t.textContent='Demo: your phone camera would open and AI would anchor this dish to your table.';t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3200);};
+
+let uRaw=0,uE=0,shown=-1,mx=0,my=0;
+addEventListener('pointermove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5;});
+function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+const still=matchMedia('(prefers-reduced-motion:reduce)').matches,clock=new THREE.Clock(),v3=new THREE.Vector3();
+function showItem(i){const h=$('hud');h.classList.add('sw');setTimeout(()=>{const it=ITEMS[i];$('course').textContent=it.c;$('name').textContent=it.n;$('price').textContent=it.p;$('desc').textContent=it.d;$('ai').textContent=it.ai;$('ar').textContent=it.ar;
+ $('t0').classList.toggle('on',i<3);$('t1').classList.toggle('on',i>=3);h.classList.remove('sw');},250);}
+function frame(){
+ const t=still?0:clock.getElapsedTime();
+ const m=maxS(),p=m>0?scrollY/m:0;
+ uRaw+=(p*(N-1)-uRaw)*.09;
+ const i0=Math.min(N-2,Math.floor(uRaw)),f=uRaw-i0;uE=i0+sm(.22,.78,f);if(uRaw>=N-1)uE=N-1;
+ const camZ=7-GAP*uE,M_=mob();
+ cam.position.set((M_?0:-2.4)+mx*.8,(M_?-1.3:0)-my*.5,camZ);cam.lookAt(cam.position.x,cam.position.y,camZ-10);
+ pm.position.set(-4,2,camZ+2);ps.position.set(4,-2,camZ+3);
+ gate.rotation.z=t*.3;
+ groups.forEach((g,i)=>{
+  const d=camZ-g.position.z;
+  const a=(1-sm(9,17,d))*sm(.5,4,d);
+  g.visible=a>.01;g.scale.setScalar(Math.max(.001,a)*(M_?.8:1));
+  g.position.x=0;
+  const sp=g.userData.spin||g;sp.rotation.y=t*.7+i;g.userData.ar.scale.setScalar(1+Math.sin(t*2+i)*.05);
+  g.position.y=Math.sin(t*1.4+i)*.07;
+  const tg=tags[i];
+  v3.set(0,2.1,0).multiplyScalar(g.scale.x).add(g.position).project(cam);
+  const cur=Math.round(uE)===i&&Math.abs(uE-i)<.25;
+  tg.style.opacity=cur?1:0;
+  tg.style.transform='translate('+((v3.x*.5+.5)*innerWidth-95)+'px,'+((-v3.y*.5+.5)*innerHeight)+'px)';
+ });
+ const idx=Math.round(uE),intro=sm(.02,.12,uRaw);
+ $('intro').style.opacity=1-intro;$('intro').style.pointerEvents=intro>.5?'none':'auto';
+ $('hud').style.opacity=intro>.05&&!$('hud').classList.contains('sw')?intro:0;
+ if(intro>.3&&idx!==shown){shown=idx;showItem(idx);}
+ $('bar').style.width=(p*100)+'%';
+ R.render(S,cam);requestAnimationFrame(frame);
+}
+frame();
+})();
+</script>
+</body>
+</html>
